@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
-interface ICartItem extends Document {
+export interface ICartItem extends Document {
     userEmail: string,
     modelName: string,
     quantity: number

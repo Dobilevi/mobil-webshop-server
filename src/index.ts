@@ -40,19 +40,21 @@ export const httpRequestTotal = new promClient.Counter({
     labelNames: ['method', 'path', 'status_code']
 });
 
-const calculationErrors = new promClient.Counter({
-    name: 'calculation_errors_total',
-    help: 'Total number of calculation errors',
-    labelNames: ['error_type']
+export const httpCurrentRequests = new promClient.Gauge({
+    name: 'http_current_requests',
+    help: 'Total number of requests since last poll',
+    labelNames: ['method', 'path', 'status_code']
 });
 
-const calculationTotal = new promClient.Counter({
-    name: 'calculations_total',
-    help: 'Total number of calculations performed',
+export const loggedInUsers = new promClient.Gauge({
+    name: 'logged_in_users',
+    help: 'Number of logged in users'
 });
 
 register.registerMetric(httpRequestDuration);
 register.registerMetric(httpRequestTotal);
+register.registerMetric(httpCurrentRequests);
+register.registerMetric(loggedInUsers);
 
 
 // mongodb connection
@@ -66,7 +68,7 @@ mongoose.connect(dbUrl).then((_) => {
 const clientHost = process.env.CLIENT_HOST || 'localhost';
 const clientPort = process.env.CLIENT_PORT || 4200;
 
-const whitelist = ['*', `http://localhost:4200`, `http://localhost:4201`, `http://localhost:4202`, `http://localhost:4203`];
+const whitelist = ['*', `http://localhost:4200`, `http://localhost:4201`];
 const corsOptions = {
     origin: (origin: string | undefined, callback: (err: Error | null, allowed?: boolean) => void) => {
         if (whitelist.indexOf(origin!) !== -1) {

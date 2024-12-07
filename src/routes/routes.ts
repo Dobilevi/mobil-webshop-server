@@ -5,22 +5,34 @@ import { Mobile } from '../model/Mobile';
 import {CartItem} from "../model/CartItem";
 import {Review} from "../model/Review";
 import url from "url"
-import {register, startTime, httpRequestDuration, httpRequestTotal} from "../index"
+import {register, startTime, httpRequestDuration, httpRequestTotal, loggedInUsers, httpCurrentRequests} from "../index"
 
 export const configureRoutes = (passport: PassportStatic, router: Router): Router => {
     router.post('/login', (req: Request, res: Response, next: NextFunction) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         passport.authenticate('local', (error: string | null, user: typeof User) => {
             if (error) {
                 res.status(500).send(error);
+                countRequest(500);
             } else {
                 if (!user) {
                     res.status(400).send('User not found.');
+                    countRequest(400);
                 } else {
                     req.login(user, (err: string | null) => {
                         if (err) {
                             res.status(500).send('Internal server error.');
+                            countRequest(500);
                         } else {
                             res.status(200).send(user);
+                            countRequest(200);
+                            loggedInUsers.inc();
                         }
                     });
                 }
@@ -29,6 +41,13 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
     });
 
     router.post('/register', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         const username = req.body.username;
         const email = req.body.email;
         const name = req.body.name;
@@ -47,59 +66,106 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
         });
         user.save().then(data => {
             res.status(201).send(data);
+            countRequest(201);
         }).catch(error => {
             res.status(500).send(error);
+            countRequest(500);
         });
     });
 
     router.post('/logout', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             req.logout((error) => {
                 if (error) {
                     res.status(500).send('Internal server error.');
+                    countRequest(500);
                 }
                 res.status(200).send('Successfully logged out.');
+                countRequest(200);
+                loggedInUsers.dec();
             })
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.get('/isLoggedIn', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             res.status(200).send(true);
         } else {
             res.status(200).send(false);
         }
+        countRequest(200);
     });
 
     router.get('/isAdmin', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             const isAdmin = (req.user as IUser).admin;
             res.status(200).send(isAdmin);
         } else {
             res.status(200).send(false);
         }
+        countRequest(200);
     });
 
     router.get('/getUser', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             if (req.user) {
                 const email = (req.user as IUser).email;
                 User.findOne({email: email}).then(user => {
                     res.status(200).send(user);
+                    countRequest(200);
                 }).catch(error => {
                     res.status(400).send('User not found.');
+                    countRequest(400);
                 });
             } else {
                 res.status(401).send('Missing user data.');
+                countRequest(401);
             }
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.post('/updateUser', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             const email = (req.user as IUser).email;
 
@@ -117,29 +183,49 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
             const query = User.updateOne({'email': email}, {$set: updatedUser});
             query.then(user => {
                 res.status(200).send(user);
+                countRequest(200);
             }).catch(error => {
                 res.status(400).send('User not found.');
+                countRequest(400);
             });
         } else {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         }
     });
 
     router.delete('/deleteUser', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             const email = (req.user as IUser).email;
 
             User.deleteOne({email: email}).then(data => {
                 res.status(200).send(data);
+                countRequest(200);
             }).catch(error => {
                 res.status(500).send('Internal server error.');
+                countRequest(500);
             });
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.post('/uploadMobile', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             if ((req.user as IUser).admin) {
 
@@ -159,21 +245,33 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
                 }, {upsert: true}).then(data => {
                     if (data.upsertedCount === 1) {
                         res.status(201).send(data);
+                        countRequest(201);
                     } else {
                         res.status(200).send(data);
+                        countRequest(201);
                     }
                 }).catch(error => {
                     res.status(500).send(error);
+                    countRequest(500);
                 });
             } else {
                 res.status(401).send('User has no admin privileges.');
+                countRequest(401);
             }
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.get('/getAllMobiles/:search?', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         const search = req.params?.search;
 
         const filter: any = {};
@@ -183,23 +281,41 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
 
         Mobile.find(filter).then(mobile => {
             res.status(200).send(mobile);
+            countRequest(200);
         }).catch(error => {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         });
     });
 
     router.get('/getMobile/:modelName', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         const modelName = req.params?.modelName;
 
         let query = Mobile.findOne({modelName: modelName});
         query.then(mobile => {
             res.status(200).send(mobile);
+            countRequest(200);
         }).catch(error => {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         });
     });
 
     router.delete('/deleteMobile/:modelName', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             if ((req.user as IUser).admin) {
                 const modelName = req.params.modelName;
@@ -213,21 +329,33 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
                 Mobile.deleteOne({modelName: modelName}).then(data => {
                     if (data.deletedCount !== 0) {
                         res.status(200).send(data);
+                        countRequest(200);
                     } else {
                         res.status(404).send('Mobile is not found.');
+                        countRequest(404);
                     }
                 }).catch(error => {
                     res.status(500).send('Internal server error.');
+                    countRequest(500);
                 });
             } else {
                 res.status(401).send('User has no admin privileges.');
+                countRequest(401);
             }
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.get('/getCart', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             if (req.user) {
                 const email = (req.user as IUser)['email'];
@@ -243,18 +371,29 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
                     }
                 ]).then((data) => {
                     res.status(200).send(data);
+                    countRequest(200);
                 }).catch(error => {
                     res.status(500).send('Internal server error.');
+                    countRequest(500);
                 });
             } else {
                 res.status(401).send('Missing user data.');
+                countRequest(401);
             }
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.post('/addToCart', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             console.log('User is logged in.');
 
@@ -316,26 +455,39 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
                                     });
                                 }
                                 res.status(200);
+                                countRequest(200);
                             }).catch(error => {
                                 res.status(500).send('Internal server error.');
+                                countRequest(500);
                             });
                         } else {
                             res.status(500).send('Not enough items in stock.');
+                            countRequest(500);
                         }
 
                     } else {
                         res.status(500).send('Mobile not found.');
+                        countRequest(500);
                     }
                 }).catch(error => {
                     res.status(500).send('Internal server error.');
+                    countRequest(500);
                 });
             }
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.post('/removeFromCart', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             console.log('User is logged in.');
 
@@ -389,39 +541,62 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
                             }
 
                             res.status(200);
+                            countRequest(200);
                         } else {
                             console.log('Cart item doesnt exist!');
                             res.status(500).send('Cart item doesnt exist.');
+                            countRequest(500);
                         }
                     }).catch(error => {
                         res.status(500).send('Internal server error.');
+                        countRequest(500);
                     });
                 } else {
                     res.status(500).send('Mobile not found.');
+                    countRequest(500);
                 }
             }).catch(error => {
                 res.status(500).send('Internal server error.');
+                countRequest(500);
             });
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.post('/purchase', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             const email = (req.user as IUser).email;
 
             CartItem.deleteMany({userEmail: email}).then(data => {
                 res.status(200).send(data);
+                countRequest(200);
             }).catch(error => {
                 res.status(500).send('Internal server error.');
+                countRequest(500);
             });
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.get('/getReviews/:modelName', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         const modelName = req.params.modelName;
 
         Review.aggregate([
@@ -436,12 +611,21 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
             }
         ]).then((data) => {
             res.status(200).send(data);
+            countRequest(200);
         }).catch(error => {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         });
     });
 
     router.post('/addReview', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             if (req.user) {
                 const userEmail = (req.user as IUser)['email'];
@@ -462,31 +646,50 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
                     }
                 }).catch((error) => {
                     res.status(500).send('Internal server error.');
+                    countRequest(500);
                 });
             } else {
 
             }
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.delete('/deleteReview', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         if (req.isAuthenticated()) {
             const userEmail = (req.user as IUser).email;
             const modelName = req.body.modelName;
 
             Review.deleteOne({userEmail: userEmail, modelName: modelName}).then((data) => {
                 res.status(200).send(data);
+                countRequest(200);
             }).catch((error) => {
                 res.status(500).send('Internal server error.');
+                countRequest(500);
             });
         } else {
             res.status(401).send('User is not logged in.');
+            countRequest(401);
         }
     });
 
     router.post('/initUsers', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         User.bulkSave([
             new User({
                 username: 'admin',
@@ -506,12 +709,21 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
             })
         ]).then((data) => {
             res.status(201).send(data);
+            countRequest(201);
         }).catch((error) => {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         });
     });
 
     router.post('/initMobiles', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         Mobile.bulkSave([
             new Mobile({
                 name: 'iPhone 11',
@@ -547,12 +759,21 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
             })
         ]).then((data) => {
             res.status(201).send(data);
+            countRequest(201);
         }).catch((error) => {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         });
     });
 
     router.post('/initReviews', (req: Request, res: Response) => {
+        const countRequest = (statusCode: number) => {
+            const path = url.parse(req.url).pathname;
+
+            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.inc();
+        };
         Review.bulkSave([
             new Review({
                 userEmail: 'ivan@test.com',
@@ -568,8 +789,10 @@ export const configureRoutes = (passport: PassportStatic, router: Router): Route
             })
         ]).then((data) => {
             res.status(201).send(data);
+            countRequest(201);
         }).catch((error) => {
             res.status(500).send('Internal server error.');
+            countRequest(500);
         });
     });
 
@@ -584,8 +807,7 @@ export const configurePrometheusRoutes = (router: Router): Router => {
             const path = url.parse(req.url).pathname;
 
             httpRequestDuration.labels(req.method, path!, String(statusCode)).observe(duration);
-
-            httpRequestTotal.labels(req.method, path!, String(statusCode)).inc();
+            httpCurrentRequests.reset();
         };
 
         res.setHeader('X-XSS-Protection', '1; mode=block');
